@@ -1,0 +1,50 @@
+# ===== ESP-IDF build artifacts =====
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.defaults
+sdkconfig.ci
+sdkconfig.*.old
+
+# ===== ESP-IDF / ESP-Matter generated =====
+managed_components/
+dependencies.lock
+esp-idf/
+esp-matter/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
+
+# ===== VS Code =====
+.vscode/
+!.vscode/extensions.json
+
+# ===== PlatformIO (if ever used) =====
+.pio/
+
+# ===== OS junk =====
+.DS_Store
+Thumbs.db
+
+# ===== Logs & temp =====
+*.log
+*.tmp
+*.swp
+*.bak
+
+# ===== Serial monitor / core dumps =====
+core
+core.*
+
+*.bin
+*.elf
+*.map
+**/managed_components/
+**/esp-idf/
+**/esp-matter/
+
+connectedhomeip/
