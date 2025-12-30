@@ -3,20 +3,36 @@ I code in VSCode with the ESP-IDF extension. I build the code with the ESP-IDF d
 
 ESP-IDF v 5.4.1 and Matter 1.4.
 
-Run in a ESP-IDF terminal:
+In a common Bash-terminal, generate onboarding data:
+Programmering/Esp32/sensors$ esp-matter-mfg-tool -cn "My sensor" -v 0xFFF2 -p 0x8001 --pai     -k /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/attestation/Chip-Test-PAI-FFF2-8001-Key.pem     -c /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/attestation/Chip-Test-PAI-FFF2-8001-Cert.pem     -cd /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/certification-declaration/Chip-Test-CD-FFF2-8001.der
+
+Then run Docker:
 
 cd /media/patrik/Extra1TB/Programmering
 docker run -it --rm --device=/dev/ttyACM0:/dev/ttyACM0 --privileged -v $PWD:/project espressif/esp-matter:latest /bin/bash
-(adjust the paths)
 
-cd   /project/Esp32/<Project directory>
+Then:
+
+idf.py menuconfig
+
+Enable ESP32 Factory Data Provider [Component config → CHIP Device Layer → Commissioning options → Use ESP32 Factory Data Provider]
+
+Enable ESP32 Device Instance Info Provider [Component config → CHIP Device Layer → Commissioning options → Use ESP32 Device Instance Info Provider]
+
+Enable Attestation - Factory [ Component config → ESP Matter → DAC Provider options → Attestation - Factory]
+
+Set chip-factory namespace partition label [Component config → CHIP Device Layer → Matter Manufacturing Options → chip-factory namespace partition label] to nvs
+
+nt config → CHIP Device Layer → Device Identification Options
+Vendor Id = 0xFFF2
 
 idf.py set-target esp32s3
-idf.py -p /dev/ttyACM0 flash monitor
+idf.py erase-flash
+idf.py flash -p /dev/ttyACM0
+esptool.py -p /dev/ttyACM0 write_flash 0x10000 out/fff2_8001/39ca1f19-710e-465f-86b5-2cdf10c510ed/39ca1f19-710e-465f-86b5-2cdf10c510ed-partition.bin 
+idf.py monitor -p /dev/ttyACM0
 
-I then use the qr-code here to add the device to Google Home:
-https://project-chip.github.io/connectedhomeip/qrcode.html?data=MT:Y.K9042C00KA0648G00
-
+And find the png-file in Out-folder and open it. Use the Google Home app to add the device by scanning the QR-code in the png.
 --- Original Readme ---
 
 # Matter Sensors

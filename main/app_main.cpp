@@ -158,7 +158,6 @@ extern "C" void app_main()
 {
     /* Initialize the ESP NVS layer */
     nvs_flash_init();
-
     /* Initialize push button on the dev-kit to reset the device */
     esp_err_t err = factory_reset_button_register();
     ABORT_APP_ON_FAILURE(ESP_OK == err, ESP_LOGE(TAG, "Failed to initialize reset button, err:%d", err));

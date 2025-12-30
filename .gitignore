@@ -11,6 +11,7 @@ managed_components/
 dependencies.lock
 esp-idf/
 esp-matter/
+out/
 
 # ===== Python =====
 __pycache__/
