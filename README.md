@@ -1,4 +1,4 @@
-A version of ESP-IDS's Matter libraries sensors-example. I have commented out some code and run it on a ESP32C6 with no sensors attached just to try the commission code. 
+A version of ESP-IDS's Matter libraries sensors-example. I have commented out some code and run it on a ESP32S3 with no sensors attached just to try the commission code. 
 I code in VSCode with the ESP-IDF extension. I build the code with the ESP-IDF docker container to avoid compability issues. 
 
 ESP-IDF v 5.4.1 and Matter 1.4.
