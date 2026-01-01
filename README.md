@@ -10,12 +10,7 @@ source ~/esp-matter-venv/bin/activate
 pip install --upgrade pip
 pip install esp-matter-mfg-tool
 
-esp-matter-mfg-tool -cn "My sensor" -v 0xFFF2 -p 0x8001 --pai --discriminator 3841   --passc
-ode 20202021    -k /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/att
-estation/Chip-Test-PAI-FFF2-8001-Key.pem     -c /media/patrik/nvm/esp-matter/connectedhomeip/connect
-edhomeip/credentials/test/attestation/Chip-Test-PAI-FFF2-8001-Cert.pem     -cd /media/patrik/nvm/esp
--matter/connectedhomeip/connectedhomeip/credentials/test/certification-declaration/Chip-Test-CD-FFF2
--8001.der
+esp-matter-mfg-tool -cn "My sensor" -v 0xFFF2 -p 0x8001 --pai --discriminator 3841 --passcode 20202021 -k /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/attestation/Chip-Test-PAI-FFF2-8001-Key.pem     -c /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/attestation/Chip-Test-PAI-FFF2-8001-Cert.pem -cd /media/patrik/nvm/esp-matter/connectedhomeip/connectedhomeip/credentials/test/certification-declaration/Chip-Test-CD-FFF2-8001.der
 
 If you make more than one device, the discriminator value must be unique. So for a second device, replace:
 --discriminator 3841
@@ -42,11 +37,14 @@ Set chip-factory namespace partition label [Component config → CHIP Device Lay
 
 Component config → CHIP Device Layer → Device Identification Options
 Vendor Id = 0xFFF2
-(0x8001) Device Product Id
+Device Product Id = 0x8001
 
 idf.py set-target esp32s3
 idf.py erase-flash -p /dev/ttyACM0
 idf.py flash -p /dev/ttyACM0
+
+Adjust the paths below to match your paths created by esp-matter-mfg-tool above.
+
 esptool.py -p /dev/ttyACM0 write_flash 0x1E000 out/fff2_8001/39ca1f19-710e-465f-86b5-2cdf10c510ed/39ca1f19-710e-465f-86b5-2cdf10c510ed-partition.bin 
 idf.py monitor -p /dev/ttyACM0
 
