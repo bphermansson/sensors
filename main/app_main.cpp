@@ -20,8 +20,7 @@
 #include <common_macros.h>
 
 // drivers implemented by this example
-// #include <drivers/shtc3.h>
-#include <drivers/pir.h>
+#include <drivers/veml7700_handler.h>
 
 static const char *TAG = "app_main";
 
@@ -29,60 +28,6 @@ using namespace esp_matter;
 using namespace esp_matter::attribute;
 using namespace esp_matter::endpoint;
 using namespace chip::app::Clusters;
-
-// Application cluster specification, 7.18.2.11. Temperature
-// represents a temperature on the Celsius scale with a resolution of 0.01°C.
-// temp = (temperature in °C) x 100
-static void temp_sensor_notification(uint16_t endpoint_id, float temp, void *user_data)
-{
-    // schedule the attribute update so that we can report it from matter thread
-    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, temp]() {
-        attribute_t * attribute = attribute::get(endpoint_id,
-                                                 TemperatureMeasurement::Id,
-                                                 TemperatureMeasurement::Attributes::MeasuredValue::Id);
-
-        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-        attribute::get_val(attribute, &val);
-        val.val.i16 = static_cast<int16_t>(temp * 100);
-
-        attribute::update(endpoint_id, TemperatureMeasurement::Id, TemperatureMeasurement::Attributes::MeasuredValue::Id, &val);
-    });
-}
-
-// Application cluster specification, 2.6.4.1. MeasuredValue Attribute
-// represents the humidity in percent.
-// humidity = (humidity in %) x 100
-static void humidity_sensor_notification(uint16_t endpoint_id, float humidity, void *user_data)
-{
-    // schedule the attribute update so that we can report it from matter thread
-    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, humidity]() {
-        attribute_t * attribute = attribute::get(endpoint_id,
-                                                 RelativeHumidityMeasurement::Id,
-                                                 RelativeHumidityMeasurement::Attributes::MeasuredValue::Id);
-
-        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-        attribute::get_val(attribute, &val);
-        val.val.u16 = static_cast<uint16_t>(humidity * 100);
-
-        attribute::update(endpoint_id, RelativeHumidityMeasurement::Id, RelativeHumidityMeasurement::Attributes::MeasuredValue::Id, &val);
-    });
-}
-
-static void occupancy_sensor_notification(uint16_t endpoint_id, bool occupancy, void *user_data)
-{
-    // schedule the attribute update so that we can report it from matter thread
-    chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, occupancy]() {
-        attribute_t * attribute = attribute::get(endpoint_id,
-                                                 OccupancySensing::Id,
-                                                 OccupancySensing::Attributes::Occupancy::Id);
-
-        esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-        attribute::get_val(attribute, &val);
-        val.val.b = occupancy;
-
-        attribute::update(endpoint_id, OccupancySensing::Id, OccupancySensing::Attributes::Occupancy::Id, &val);
-    });
-}
 
 static esp_err_t factory_reset_button_register()
 {
@@ -167,59 +112,22 @@ extern "C" void app_main()
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
-    // // add temperature sensor device
-    // temperature_sensor::config_t temp_sensor_config;
-    // endpoint_t * temp_sensor_ep = temperature_sensor::create(node, &temp_sensor_config, ENDPOINT_FLAG_NONE, NULL);
-    // ABORT_APP_ON_FAILURE(temp_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create temperature_sensor endpoint"));
-
-    // // add the humidity sensor device
-    // humidity_sensor::config_t humidity_sensor_config;
-    // endpoint_t * humidity_sensor_ep = humidity_sensor::create(node, &humidity_sensor_config, ENDPOINT_FLAG_NONE, NULL);
-    // ABORT_APP_ON_FAILURE(humidity_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create humidity_sensor endpoint"));
-
-    // // initialize temperature and humidity sensor driver (shtc3)
-    // static shtc3_sensor_config_t shtc3_config = {
-    //     .temperature = {
-    //         .cb = temp_sensor_notification,
-    //         .endpoint_id = endpoint::get_id(temp_sensor_ep),
-    //     },
-    //     .humidity = {
-    //         .cb = humidity_sensor_notification,
-    //         .endpoint_id = endpoint::get_id(humidity_sensor_ep),
-    //     },
-    // };
-    // err = shtc3_sensor_init(&shtc3_config);
-    // ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to initialize temperature sensor driver"));
-
-    // add the occupancy sensor
-// Skapa konfigurationen
-occupancy_sensor::config_t occupancy_sensor_config;
-
-// Sätt feature_bitmap INNAN du skapar endpointen
-// 0x01 = PIR, 0x08 = Radar
-occupancy_sensor_config.occupancy_sensing.feature_flags = 0x01;
-// Skapa endpoint
-endpoint_t *occupancy_sensor_ep = occupancy_sensor::create(node, &occupancy_sensor_config, ENDPOINT_FLAG_NONE, NULL);ABORT_APP_ON_FAILURE(occupancy_sensor_ep != nullptr, ESP_LOGE(TAG, "Failed to create occupancy_sensor endpoint"));
-
-    // initialize occupancy sensor driver (pir)
-    static pir_sensor_config_t pir_config = {
-        .cb = occupancy_sensor_notification,
-        .endpoint_id = endpoint::get_id(occupancy_sensor_ep),
-    };
-    err = pir_sensor_init(&pir_config);
-    ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to initialize occupancy sensor driver"));
-
-#if CHIP_DEVICE_CONFIG_ENABLE_THREAD
-    /* Set OpenThread platform config */
-    esp_openthread_platform_config_t config = {
-        .radio_config = ESP_OPENTHREAD_DEFAULT_RADIO_CONFIG(),
-        .host_config = ESP_OPENTHREAD_DEFAULT_HOST_CONFIG(),
-        .port_config = ESP_OPENTHREAD_DEFAULT_PORT_CONFIG(),
-    };
-    set_openthread_platform_config(&config);
-#endif
 
     /* Matter start */
     err = esp_matter::start(app_event_cb);
     ABORT_APP_ON_FAILURE(err == ESP_OK, ESP_LOGE(TAG, "Failed to start Matter, err:%d", err));
+
+    if (sensor_veml7700_init() == ESP_OK) {
+        ESP_LOGI("MAIN", "Sensor redo!");
+    }
+
+    while (1) {
+        uint32_t lux = 0;
+        if (sensor_veml7700_read(&lux) == ESP_OK) {
+            ESP_LOGI("MAIN", "Lux: %lu", lux);
+            // Uppdatera Matter-attribut här
+        }
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+    
 }
