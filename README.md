@@ -51,11 +51,11 @@ Then use menuconfig to set some values needed for matter:
 + Set chip-factory namespace partition label [Component config → CHIP Device Layer → Matter Manufacturing Options → chip-factory namespace partition label] to fctry
 
 + Component config → CHIP Device Layer → Device Identification Options
-Vendor Id = 0xFFF2
-(0x8001) Device Product Id
+    Vendor Id = 0xFFF2
+    (0x8001) Device Product Id
   
-Set the correct device:
-  idf.py set-target esp32c6
+Set the correct device:    
+    idf.py set-target esp32c6
 
 Erase flash,, compile and flash the new firmware:  
     idf.py erase-flash -p /dev/ttyACM0  
@@ -64,7 +64,7 @@ Erase flash,, compile and flash the new firmware:
 Flash the onboarding data we created above (adjust the path to match yours):  
     esptool.py -p /dev/ttyACM0 write_flash 0x1E000 out/fff2_8001/39ca1f19-710e-465f-86b5-2cdf10c510ed/39ca1f19-710e-465f-86b5-2cdf10c510ed-partition.bin
 
-Start a serial monitor to see what happends:  
+Start a serial monitor to see what happends:
     idf.py monitor -p /dev/ttyACM0  
 
 And find the png-file in Out-folder and open it. Use the Google Home app to add the device by scanning the QR-code in the png.
