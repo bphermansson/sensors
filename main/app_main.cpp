@@ -14,7 +14,7 @@
 #include <esp_matter.h>
 #include <esp_matter_ota.h>
 #include <nvs_flash.h>
-
+#include <cmath>
 #include <app_openthread_config.h>
 #include <app_reset.h>
 #include <common_macros.h>
@@ -98,7 +98,14 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
     // so, return success.
     return ESP_OK;
 }
-
+uint16_t lux_to_matter_value(uint32_t lux) {
+    if (lux <= 0) return 0; // Totalt mörkt
+    
+    float measured_value = 10000 * log10((float)lux) + 1;
+    
+    if (measured_value > 0xFFFE) return 0xFFFE; // Maxgräns
+    return (uint16_t)measured_value;
+}
 extern "C" void app_main()
 {
     /* Initialize the ESP NVS layer */
@@ -111,7 +118,14 @@ extern "C" void app_main()
     node::config_t node_config;
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
+    endpoint::light_sensor::config_t sensor_config;
+    // Standardvärde vid start (t.ex. 1 lux)
+    sensor_config.illuminance_measurement.measured_value = 1; 
 
+    endpoint_t *endpoint = endpoint::light_sensor::create(node, &sensor_config, ENDPOINT_FLAG_NONE, NULL);
+
+    // Spara ID:t (oftast blir det 1 om det är första enheten)
+    uint16_t sensor_endpoint_id = endpoint::get_id(endpoint);
 
     /* Matter start */
     err = esp_matter::start(app_event_cb);
@@ -123,11 +137,31 @@ extern "C" void app_main()
 
     while (1) {
         uint32_t lux = 0;
-        if (sensor_veml7700_read(&lux) == ESP_OK) {
-            ESP_LOGI("MAIN", "Lux: %lu", lux);
-            // Uppdatera Matter-attribut här
+
+        if (sensor_veml7700_read(&lux) == ESP_OK && lux > 0) {
+
+            uint16_t matter_val =
+                (uint16_t)(log10f((float)lux) * 10000.0f) + 1;
+
+            esp_matter_attr_val_t attr =
+                esp_matter_nullable_uint16(matter_val);
+
+            esp_err_t err = attribute::update(
+                sensor_endpoint_id,
+                IlluminanceMeasurement::Id,
+                IlluminanceMeasurement::Attributes::MeasuredValue::Id,
+                &attr
+            );
+
+            if (err != ESP_OK) {
+                ESP_LOGE("MAIN", "Matter update failed: %d", err);
+            } else {
+                ESP_LOGI("MAIN",
+                        "Lux: %lu → Matter: %u",
+                        lux, matter_val);
+            }
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
+
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
-    
 }
