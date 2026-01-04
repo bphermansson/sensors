@@ -1,3 +1,4 @@
+MatterLuxMeter
 This is a lux-meter with Matter support. This means you can use it for getting the current light level inte your home automation system, I use Google Home. The hardware I use is a VEML7700 sensor and a ESP32C6, but you can just as well use a S3, C3 or whatever. The Esp32 do not have defined SCL and SCA pins, so you can use which ones you like, just adjust the code in veml7700_handler.cpp:
 
 #define SDA_GPIO_NUM 5
