@@ -12,3 +12,5 @@ dependencies:
     version: '*'
   esp-idf-lib/veml7700:
     version: '*'
+  espressif/led_strip:
+    version: ^2.4

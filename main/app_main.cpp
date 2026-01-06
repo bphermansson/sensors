@@ -18,16 +18,36 @@
 #include <app_openthread_config.h>
 #include <app_reset.h>
 #include <common_macros.h>
-
+#include "led_strip.h"
 // drivers implemented by this example
 #include <drivers/veml7700_handler.h>
 
 static const char *TAG = "app_main";
 
+led_strip_handle_t led_strip;
+
 using namespace esp_matter;
 using namespace esp_matter::attribute;
 using namespace esp_matter::endpoint;
 using namespace chip::app::Clusters;
+
+led_strip_handle_t configure_led(void) {
+    led_strip_config_t strip_config = {
+        .strip_gpio_num = 8,
+        .max_leds = 1,
+        .led_pixel_format = LED_PIXEL_FORMAT_GRB,
+        .led_model = LED_MODEL_WS2812,
+    };
+
+    led_strip_rmt_config_t rmt_config = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 10 * 1000 * 1000,
+    };
+
+    led_strip_handle_t strip;
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &strip));
+    return strip;
+}
 
 static esp_err_t factory_reset_button_register()
 {
@@ -94,22 +114,39 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
 static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                                          uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data)
 {
-    // Since this is just a sensor and we don't expect any writes on our temperature sensor,
-    // so, return success.
+    if (type == attribute::POST_UPDATE) {
+        // On/Off logik (Cluster 0x0006)
+        if (cluster_id == 0x0006 && attribute_id == 0x0000) {
+            if (val->val.b) {
+                led_strip_set_pixel(led_strip, 0, 50, 50, 50); 
+            } else {
+                led_strip_clear(led_strip);
+            }
+            led_strip_refresh(led_strip);
+        }
+        
+        // Färg-logik (Color Control Cluster 0x0300)
+        // När du ändrar i färghjulet kommer koden hit med cluster_id 0x0300
+        if (cluster_id == 0x0300) {
+            ESP_LOGI("LED", "Färgändring mottagen! ID: %ld", attribute_id);
+            // Här kan vi senare lägga in HSV-till-RGB logik
+        }
+    }
     return ESP_OK;
 }
-uint16_t lux_to_matter_value(uint32_t lux) {
-    if (lux <= 0) return 0; // Totalt mörkt
+// uint16_t lux_to_matter_value(uint32_t lux) {
+//     if (lux <= 0) return 0; // Totalt mörkt
     
-    float measured_value = 10000 * log10((float)lux) + 1;
+//     float measured_value = 10000 * log10((float)lux) + 1;
     
-    if (measured_value > 0xFFFE) return 0xFFFE; // Maxgräns
-    return (uint16_t)measured_value;
-}
+//     if (measured_value > 0xFFFE) return 0xFFFE; // Maxgräns
+//     return (uint16_t)measured_value;
+// }
 extern "C" void app_main()
 {
     /* Initialize the ESP NVS layer */
     nvs_flash_init();
+
     /* Initialize push button on the dev-kit to reset the device */
     esp_err_t err = factory_reset_button_register();
     ABORT_APP_ON_FAILURE(ESP_OK == err, ESP_LOGE(TAG, "Failed to initialize reset button, err:%d", err));
@@ -118,14 +155,23 @@ extern "C" void app_main()
     node::config_t node_config;
     node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
     ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
+
+
     endpoint::light_sensor::config_t sensor_config;
-    // Standardvärde vid start (t.ex. 1 lux)
     sensor_config.illuminance_measurement.measured_value = 1; 
-
     endpoint_t *endpoint = endpoint::light_sensor::create(node, &sensor_config, ENDPOINT_FLAG_NONE, NULL);
-
     // Spara ID:t (oftast blir det 1 om det är första enheten)
     uint16_t sensor_endpoint_id = endpoint::get_id(endpoint);
+
+
+    extended_color_light::config_t light_config;
+    endpoint_t *endpoint_light = extended_color_light::create(node, &light_config, esp_matter::ENDPOINT_FLAG_NONE, NULL);
+    uint16_t endpoint_id = endpoint::get_id(endpoint_light);
+    uint32_t color_control_cluster_id = 0x0300;
+    uint32_t feature_map_attribute_id = 0xFFFC;
+    esp_matter_attr_val_t val = esp_matter_uint32(0x01); // 0x01 = Hue/Saturation
+    attribute::update(endpoint_id, color_control_cluster_id, feature_map_attribute_id, &val);
+
 
     /* Matter start */
     err = esp_matter::start(app_event_cb);
@@ -140,6 +186,8 @@ extern "C" void app_main()
 
         if (sensor_veml7700_read(&lux) == ESP_OK && lux > 0) {
 
+
+            // Send to Home
             uint16_t matter_val =
                 (uint16_t)(log10f((float)lux) * 10000.0f) + 1;
 
