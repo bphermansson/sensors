@@ -24,7 +24,7 @@
 
 static const char *TAG = "app_main";
 
-led_strip_handle_t led_strip;
+static led_strip_handle_t led_strip;
 
 using namespace esp_matter;
 using namespace esp_matter::attribute;
@@ -33,20 +33,18 @@ using namespace chip::app::Clusters;
 
 led_strip_handle_t configure_led(void) {
     led_strip_config_t strip_config = {
-        .strip_gpio_num = 8,
-        .max_leds = 1,
+        .strip_gpio_num = 8, // Din GPIO
+        .max_leds = 1,       // Antal LED-chips
         .led_pixel_format = LED_PIXEL_FORMAT_GRB,
         .led_model = LED_MODEL_WS2812,
     };
-
     led_strip_rmt_config_t rmt_config = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = 10 * 1000 * 1000,
+        .resolution_hz = 10 * 1000 * 1000, // 10MHz
     };
-
-    led_strip_handle_t strip;
-    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &strip));
-    return strip;
+    led_strip_handle_t handle;
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_config, &rmt_config, &handle));
+    return handle;
 }
 
 static esp_err_t factory_reset_button_register()
@@ -111,26 +109,36 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
 // This callback is called for every attribute update. The callback implementation shall
 // handle the desired attributes and return an appropriate error code. If the attribute
 // is not of your interest, please do not return an error code and strictly return ESP_OK.
+// Globala variabler för att hålla koll på färgen
+static uint8_t s_hue = 0;
+static uint8_t s_sat = 0;
+static bool s_on = false;
+
 static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
                                          uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data)
 {
     if (type == attribute::POST_UPDATE) {
-        // On/Off logik (Cluster 0x0006)
+        // ON/OFF (Cluster 0x0006)
         if (cluster_id == 0x0006 && attribute_id == 0x0000) {
-            if (val->val.b) {
-                led_strip_set_pixel(led_strip, 0, 50, 50, 50); 
-            } else {
-                led_strip_clear(led_strip);
-            }
-            led_strip_refresh(led_strip);
+            s_on = val->val.b;
         }
-        
-        // Färg-logik (Color Control Cluster 0x0300)
-        // När du ändrar i färghjulet kommer koden hit med cluster_id 0x0300
-        if (cluster_id == 0x0300) {
-            ESP_LOGI("LED", "Färgändring mottagen! ID: %ld", attribute_id);
-            // Här kan vi senare lägga in HSV-till-RGB logik
+        // COLOR CONTROL (Cluster 0x0300)
+        else if (cluster_id == 0x0300) {
+            if (attribute_id == 0x0000) s_hue = val->val.u8; // Hue
+            if (attribute_id == 0x0001) s_sat = val->val.u8; // Saturation
         }
+
+        // Uppdatera den fysiska LED:n
+        if (s_on) {
+            // Mycket enkel HSV till RGB konvertering (0-254 till 0-255)
+            uint8_t r, g, b;
+            // Här kan man använda en riktig hsv2rgb-funktion
+            // För test: Sätt färg baserat på Hue om Saturation är hög
+            led_strip_set_pixel(led_strip, 0, (s_hue < 85 ? 50 : 0), (s_hue >= 85 && s_hue < 170 ? 50 : 0), (s_hue >= 170 ? 50 : 0));
+        } else {
+            led_strip_clear(led_strip);
+        }
+        led_strip_refresh(led_strip);
     }
     return ESP_OK;
 }
@@ -146,6 +154,7 @@ extern "C" void app_main()
 {
     /* Initialize the ESP NVS layer */
     nvs_flash_init();
+    led_strip = configure_led(); 
 
     /* Initialize push button on the dev-kit to reset the device */
     esp_err_t err = factory_reset_button_register();
