@@ -189,36 +189,36 @@ extern "C" void app_main()
     if (sensor_veml7700_init() == ESP_OK) {
         ESP_LOGI("MAIN", "Sensor redo!");
     }
+while (1) {
+    uint32_t lux = 0;
 
-    while (1) {
-        uint32_t lux = 0;
-
-        if (sensor_veml7700_read(&lux) == ESP_OK && lux > 0) {
-
-
-            // Send to Home
-            uint16_t matter_val =
-                (uint16_t)(log10f((float)lux) * 10000.0f) + 1;
-
-            esp_matter_attr_val_t attr =
-                esp_matter_nullable_uint16(matter_val);
-
-            esp_err_t err = attribute::update(
-                sensor_endpoint_id,
-                IlluminanceMeasurement::Id,
-                IlluminanceMeasurement::Attributes::MeasuredValue::Id,
-                &attr
-            );
-
-            if (err != ESP_OK) {
-                ESP_LOGE("MAIN", "Matter update failed: %d", err);
-            } else {
-                ESP_LOGI("MAIN",
-                        "Lux: %lu → Matter: %u",
-                        lux, matter_val);
-            }
+    if (sensor_veml7700_read(&lux) == ESP_OK) {
+        // --- DIN NYA LOGIK HÄR ---
+        bool should_be_on = (lux < 100);
+        
+        // 1. Uppdatera den fysiska lampan
+        if (should_be_on) {
+            led_strip_set_pixel(led_strip, 0, 50, 50, 50); // Vit färg
+            ESP_LOGI("AUTO", "Mörkt ute (%lu lux) - Tänder lampan", lux);
+        } else {
+            led_strip_clear(led_strip);
+            ESP_LOGI("AUTO", "Ljust ute (%lu lux) - Släcker lampan", lux);
         }
+        led_strip_refresh(led_strip);
 
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        // 2. Synka med Google Home (Matter)
+        // Vi antar att lampan ligger på endpoint_id (Endpoint 2)
+        esp_matter_attr_val_t on_off_val = esp_matter_bool(should_be_on);
+        attribute::update(endpoint_id, 0x0006, 0x0000, &on_off_val);
+        
+        // --- SLUT PÅ LOGIK ---
+
+        // (Din befintliga kod för att skicka lux-värdet till Matter)
+        uint16_t matter_val = (uint16_t)(log10f((float)lux + 1.0f) * 10000.0f);
+        esp_matter_attr_val_t attr = esp_matter_nullable_uint16(matter_val);
+        attribute::update(sensor_endpoint_id, 0x0400, 0x0000, &attr);
     }
+
+    vTaskDelay(pdMS_TO_TICKS(10000)); // Vänta 10 sekunder
+}
 }
