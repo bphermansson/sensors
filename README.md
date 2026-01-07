@@ -6,6 +6,8 @@ This is a lux-meter with Matter support. This means you can use it for getting t
   #define SDA_GPIO_NUM 5<br>
   #define SCL_GPIO_NUM 6
 
+The main branch is just a Luxmeter that reports to Google Home. But this value cant be used in automations, support for that comes later according to Google. As a work-around I created the branch "DeviceSimulatesALampToMakeAutomationsEasier". This code creates not only a Luxmeter but also a light. The light turns on when the sensor detects darkness, and the light is connected to Google Home. And the state of a light can be used in automations, so this branch can be used to trigger automations based on the lightlevel in the room. Ugly trick maybe, or a nice work-around? :)
+
 I use ESP-IDF v 5.4.1 and Matter 1.4.<br>
 Download Matter, <https://github.com/espressif/esp-matter><br>
 and ESP-IDF, <https://github.com/espressif/esp-idf><br>
